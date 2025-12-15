@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Yubico AB. All rights reserved.
+ * Copyright (c) 2019-2025 Yubico AB. All rights reserved.
  * Use of this source code is governed by a BSD-style
  * license that can be found in the LICENSE file.
  * SPDX-License-Identifier: BSD-2-Clause
@@ -135,8 +135,9 @@ print_rk(const fido_credman_rk_t *rk, size_t idx)
 	type = cose_string(fido_cred_type(cred));
 	prot = prot_string(fido_cred_prot(cred));
 
-	printf("%02u: %s %s %s %s %s\n", (unsigned)idx, id,
-	    fido_cred_display_name(cred), user_id, type, prot);
+	printf("%02u: %s %s %s %s %s %spay\n", (unsigned)idx, id,
+	    fido_cred_display_name(cred), user_id, type, prot,
+	    fido_cred_payment(cred) ? "" : "no");
 
 	r = 0;
 out:
@@ -299,7 +300,7 @@ credman_update_rk(const char *path, const char *user_id, const char *cred_id,
 		warnx("fido_cred_new");
 		goto out;
 	}
-	if ((r = fido_cred_set_id(cred, cred_id_ptr, cred_id_len)) != FIDO_OK) { 
+	if ((r = fido_cred_set_id(cred, cred_id_ptr, cred_id_len)) != FIDO_OK) {
 		warnx("fido_cred_set_id: %s",  fido_strerr(r));
 		goto out;
 	}

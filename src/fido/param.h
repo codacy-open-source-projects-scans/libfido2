@@ -1,18 +1,18 @@
 /*
  * Copyright (c) 2018-2025 Yubico AB. All rights reserved.
  * SPDX-License-Identifier: BSD-2-Clause
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *    1. Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *    2. Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in
  *       the documentation and/or other materials provided with the
  *       distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -132,6 +132,7 @@
 #define FIDO_EXT_CRED_BLOB	0x08
 #define FIDO_EXT_MINPINLEN	0x10
 #define FIDO_EXT_HMAC_SECRET_MC	0x20
+#define FIDO_EXT_PAYMENT	0x40
 
 /* Supported credential protection policies. */
 #define FIDO_CRED_PROT_UV_OPTIONAL		0x01
@@ -144,10 +145,11 @@
 
 #ifdef _FIDO_INTERNAL
 #define FIDO_EXT_ASSERT_MASK	(FIDO_EXT_HMAC_SECRET|FIDO_EXT_LARGEBLOB_KEY| \
-				 FIDO_EXT_CRED_BLOB)
+				 FIDO_EXT_CRED_BLOB|FIDO_EXT_PAYMENT)
 #define FIDO_EXT_CRED_MASK	(FIDO_EXT_HMAC_SECRET|FIDO_EXT_CRED_PROTECT| \
-				 FIDO_EXT_LARGEBLOB_KEY|FIDO_EXT_CRED_BLOB| \
-				 FIDO_EXT_MINPINLEN|FIDO_EXT_HMAC_SECRET_MC)
+				 FIDO_EXT_LARGEBLOB_KEY|FIDO_EXT_CRED_BLOB|  \
+				 FIDO_EXT_MINPINLEN|FIDO_EXT_HMAC_SECRET_MC| \
+				 FIDO_EXT_PAYMENT)
 #endif /* _FIDO_INTERNAL */
 
 /* Recognised UV modes. */
