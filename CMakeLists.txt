@@ -1,8 +1,8 @@
-# Copyright (c) 2018-2022 Yubico AB. All rights reserved.
+# Copyright (c) 2018-2026 Yubico AB. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 # SPDX-License-Identifier: BSD-2-Clause
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.7...4.2)
 
 # detect AppleClang; needs to come before project()
 cmake_policy(SET CMP0025 NEW)
@@ -434,6 +434,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 message(STATUS "CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS "CMAKE_SYSTEM_VERSION: ${CMAKE_SYSTEM_VERSION}")
+message(STATUS "CMAKE_VERSION: ${CMAKE_VERSION}")
 message(STATUS "CRYPTO_INCLUDE_DIRS: ${CRYPTO_INCLUDE_DIRS}")
 message(STATUS "CRYPTO_LIBRARIES: ${CRYPTO_LIBRARIES}")
 message(STATUS "CRYPTO_LIBRARY_DIRS: ${CRYPTO_LIBRARY_DIRS}")
