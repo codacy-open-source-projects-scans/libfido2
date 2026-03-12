@@ -187,17 +187,20 @@ list(APPEND MAN_ALIAS
 	fido_cred_new fido_cred_free
 	fido_cred_new fido_cred_id_len
 	fido_cred_new fido_cred_id_ptr
+	fido_cred_new fido_cred_hmac_secret_len
+	fido_cred_new fido_cred_hmac_secret_ptr
 	fido_cred_new fido_cred_largeblob_key_len
 	fido_cred_new fido_cred_largeblob_key_ptr
+	fido_cred_new fido_cred_payment
 	fido_cred_new fido_cred_pin_minlen
 	fido_cred_new fido_cred_prot
 	fido_cred_new fido_cred_pubkey_len
 	fido_cred_new fido_cred_pubkey_ptr
 	fido_cred_new fido_cred_rp_id
 	fido_cred_new fido_cred_rp_name
-	fido_cred_new fido_cred_sigcount
 	fido_cred_new fido_cred_sig_len
 	fido_cred_new fido_cred_sig_ptr
+	fido_cred_new fido_cred_sigcount
 	fido_cred_new fido_cred_type
 	fido_cred_new fido_cred_user_id_len
 	fido_cred_new fido_cred_user_id_ptr
@@ -227,8 +230,8 @@ list(APPEND MAN_ALIAS
 	fido_credman_metadata_new fido_credman_rp_name
 	fido_credman_metadata_new fido_credman_rp_new
 	fido_credman_metadata_new fido_credman_set_dev_rk
-	fido_cred_set_authdata fido_cred_set_attstmt
 	fido_cred_set_authdata fido_cred_set_attobj
+	fido_cred_set_authdata fido_cred_set_attstmt
 	fido_cred_set_authdata fido_cred_set_authdata_raw
 	fido_cred_set_authdata fido_cred_set_blob
 	fido_cred_set_authdata fido_cred_set_clientdata
@@ -236,6 +239,8 @@ list(APPEND MAN_ALIAS
 	fido_cred_set_authdata fido_cred_set_entattest
 	fido_cred_set_authdata fido_cred_set_extensions
 	fido_cred_set_authdata fido_cred_set_fmt
+	fido_cred_set_authdata fido_cred_set_hmac_salt
+	fido_cred_set_authdata fido_cred_set_hmac_secret
 	fido_cred_set_authdata fido_cred_set_id
 	fido_cred_set_authdata fido_cred_set_pin_minlen
 	fido_cred_set_authdata fido_cred_set_prot
