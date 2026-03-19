@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022 Yubico AB. All rights reserved.
+ * Copyright (c) 2018-2026 Yubico AB. All rights reserved.
  * Use of this source code is governed by a BSD-style
  * license that can be found in the LICENSE file.
  * SPDX-License-Identifier: BSD-2-Clause
@@ -8,13 +8,6 @@
 #include <openssl/sha.h>
 #include "fido.h"
 #include "fido/es256.h"
-
-#define CTAP21_UV_TOKEN_PERM_MAKECRED	0x01
-#define CTAP21_UV_TOKEN_PERM_ASSERT	0x02
-#define CTAP21_UV_TOKEN_PERM_CRED_MGMT	0x04
-#define CTAP21_UV_TOKEN_PERM_BIO	0x08
-#define CTAP21_UV_TOKEN_PERM_LARGEBLOB	0x10
-#define CTAP21_UV_TOKEN_PERM_CONFIG	0x20
 
 int
 fido_sha256(fido_blob_t *digest, const u_char *data, size_t data_len)
@@ -124,30 +117,6 @@ fail:
 	return (r);
 }
 
-static cbor_item_t *
-encode_uv_permission(uint8_t cmd)
-{
-	switch (cmd) {
-	case CTAP_CBOR_ASSERT:
-		return (cbor_build_uint8(CTAP21_UV_TOKEN_PERM_ASSERT));
-	case CTAP_CBOR_BIO_ENROLL_PRE:
-	case CTAP_CBOR_BIO_ENROLL:
-		return (cbor_build_uint8(CTAP21_UV_TOKEN_PERM_BIO));
-	case CTAP_CBOR_CONFIG:
-		return (cbor_build_uint8(CTAP21_UV_TOKEN_PERM_CONFIG));
-	case CTAP_CBOR_MAKECRED:
-		return (cbor_build_uint8(CTAP21_UV_TOKEN_PERM_MAKECRED));
-	case CTAP_CBOR_CRED_MGMT_PRE:
-	case CTAP_CBOR_CRED_MGMT:
-		return (cbor_build_uint8(CTAP21_UV_TOKEN_PERM_CRED_MGMT));
-	case CTAP_CBOR_LARGEBLOB:
-		return (cbor_build_uint8(CTAP21_UV_TOKEN_PERM_LARGEBLOB));
-	default:
-		fido_log_debug("%s: cmd 0x%02x", __func__, cmd);
-		return (NULL);
-	}
-}
-
 static int
 ctap20_uv_token_tx(fido_dev_t *dev, const char *pin, const fido_blob_t *ecdh,
     const es256_pk_t *pk, int *ms)
@@ -207,7 +176,7 @@ fail:
 
 static int
 ctap21_uv_token_tx(fido_dev_t *dev, const char *pin, const fido_blob_t *ecdh,
-    const es256_pk_t *pk, uint8_t cmd, const char *rpid, int *ms)
+    const es256_pk_t *pk, unsigned int perm, const char *rpid, int *ms)
 {
 	fido_blob_t	 f;
 	fido_blob_t	*p = NULL;
@@ -244,7 +213,7 @@ ctap21_uv_token_tx(fido_dev_t *dev, const char *pin, const fido_blob_t *ecdh,
 	    (argv[1] = cbor_build_uint8(subcmd)) == NULL ||
 	    (argv[2] = es256_pk_encode(pk, 1)) == NULL ||
 	    (phe != NULL && (argv[5] = fido_blob_encode(phe)) == NULL) ||
-	    (argv[8] = encode_uv_permission(cmd)) == NULL ||
+	    (argv[8] = cbor_build_uint(perm)) == NULL ||
 	    (rpid != NULL && (argv[9] = cbor_build_string(rpid)) == NULL)) {
 		fido_log_debug("%s: cbor encode", __func__);
 		r = FIDO_ERR_INTERNAL;
@@ -329,7 +298,7 @@ fail:
 }
 
 static int
-uv_token_wait(fido_dev_t *dev, uint8_t cmd, const char *pin,
+uv_token_wait(fido_dev_t *dev, unsigned int perm, const char *pin,
     const fido_blob_t *ecdh, const es256_pk_t *pk, const char *rpid,
     fido_blob_t *token, int *ms)
 {
@@ -338,7 +307,7 @@ uv_token_wait(fido_dev_t *dev, uint8_t cmd, const char *pin,
 	if (ecdh == NULL || pk == NULL)
 		return (FIDO_ERR_INVALID_ARGUMENT);
 	if (fido_dev_supports_permissions(dev))
-		r = ctap21_uv_token_tx(dev, pin, ecdh, pk, cmd, rpid, ms);
+		r = ctap21_uv_token_tx(dev, pin, ecdh, pk, perm, rpid, ms);
 	else
 		r = ctap20_uv_token_tx(dev, pin, ecdh, pk, ms);
 	if (r != FIDO_OK)
@@ -347,12 +316,41 @@ uv_token_wait(fido_dev_t *dev, uint8_t cmd, const char *pin,
 	return (uv_token_rx(dev, ecdh, token, ms));
 }
 
+static uint8_t
+cmd_to_perm(uint8_t cmd)
+{
+	switch (cmd) {
+	case CTAP_CBOR_ASSERT:
+		return (FIDO_PUAT_GETASSERT);
+	case CTAP_CBOR_BIO_ENROLL_PRE:
+	case CTAP_CBOR_BIO_ENROLL:
+		return (FIDO_PUAT_BIOENROLL);
+	case CTAP_CBOR_CONFIG:
+		return (FIDO_PUAT_CONFIG);
+	case CTAP_CBOR_MAKECRED:
+		return (FIDO_PUAT_MAKECRED);
+	case CTAP_CBOR_CRED_MGMT_PRE:
+	case CTAP_CBOR_CRED_MGMT:
+		return (FIDO_PUAT_CREDMAN);
+	case CTAP_CBOR_LARGEBLOB:
+		return (FIDO_PUAT_LARGEBLOB);
+	default:
+		fido_log_debug("%s: cmd 0x%02x", __func__, cmd);
+		return (0);
+	}
+}
+
 int
 fido_dev_get_uv_token(fido_dev_t *dev, uint8_t cmd, const char *pin,
     const fido_blob_t *ecdh, const es256_pk_t *pk, const char *rpid,
     fido_blob_t *token, int *ms)
 {
-	return (uv_token_wait(dev, cmd, pin, ecdh, pk, rpid, token, ms));
+	uint8_t perm = cmd_to_perm(cmd);
+
+	if (perm == 0)
+		return (FIDO_ERR_INTERNAL);
+
+	return (uv_token_wait(dev, perm, pin, ecdh, pk, rpid, token, ms));
 }
 
 static int

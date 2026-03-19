@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2025 Yubico AB. All rights reserved.
+ * Copyright (c) 2018-2026 Yubico AB. All rights reserved.
  * SPDX-License-Identifier: BSD-2-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,5 +166,14 @@
 #define FIDO_UV_MODE_ALL	0x0400	/* all supported UV modes required */
 #define FIDO_UV_MODE_EXT_PIN	0x0800	/* external pin verification */
 #define FIDO_UV_MODE_EXT_DRAWN	0x1000	/* external drawn pattern check */
+
+/* Recognised token permissions */
+#define FIDO_PUAT_MAKECRED	0x01
+#define FIDO_PUAT_GETASSERT	0x02
+#define FIDO_PUAT_CREDMAN	0x04
+#define FIDO_PUAT_BIOENROLL	0x08
+#define FIDO_PUAT_LARGEBLOB	0x10
+#define FIDO_PUAT_CONFIG	0x20
+#define FIDO_PUAT_CREDMAN_RO	0x40
 
 #endif /* !_FIDO_PARAM_H */
