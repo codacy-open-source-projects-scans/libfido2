@@ -232,10 +232,11 @@
 		fido_dev_free;
 		fido_dev_get_assert;
 		fido_dev_get_cbor_info;
+		fido_dev_get_puat;
 		fido_dev_get_retry_count;
-		fido_dev_get_uv_retry_count;
 		fido_dev_get_touch_begin;
 		fido_dev_get_touch_status;
+		fido_dev_get_uv_retry_count;
 		fido_dev_has_pin;
 		fido_dev_has_uv;
 		fido_dev_info_free;
@@ -255,12 +256,15 @@
 		fido_dev_new;
 		fido_dev_open;
 		fido_dev_protocol;
+		fido_dev_puat_len;
+		fido_dev_puat_ptr;
 		fido_dev_reset;
 		fido_dev_set_io_functions;
 		fido_dev_set_pcsc;
 		fido_dev_set_pin;
 		fido_dev_set_pin_minlen;
 		fido_dev_set_pin_minlen_rpid;
+		fido_dev_set_puat;
 		fido_dev_set_timeout;
 		fido_dev_set_transport_functions;
 		fido_dev_supports_cred_prot;
