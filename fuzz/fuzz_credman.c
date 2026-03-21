@@ -19,10 +19,13 @@
 
 #include "../openbsd-compat/openbsd-compat.h"
 
+#define PACK_ARR_LEN 9
+
 /* Parameter set defining a FIDO2 credential management operation. */
 struct param {
 	char pin[MAXSTR];
 	char rp_id[MAXSTR];
+	uint8_t opt;
 	int seed;
 	struct blob cred_id;
 	struct blob del_wire_data;
@@ -92,7 +95,7 @@ unpack(const uint8_t *ptr, size_t len)
 	    cbor.read != len ||
 	    cbor_isa_array(item) == false ||
 	    cbor_array_is_definite(item) == false ||
-	    cbor_array_size(item) != 8 ||
+	    cbor_array_size(item) != PACK_ARR_LEN ||
 	    (v = cbor_array_handle(item)) == NULL)
 		goto fail;
 
@@ -103,7 +106,8 @@ unpack(const uint8_t *ptr, size_t len)
 	    unpack_blob(v[4], &p->meta_wire_data) < 0 ||
 	    unpack_blob(v[5], &p->rp_wire_data) < 0 ||
 	    unpack_blob(v[6], &p->rk_wire_data) < 0 ||
-	    unpack_blob(v[7], &p->del_wire_data) < 0)
+	    unpack_blob(v[7], &p->del_wire_data) < 0 ||
+	    unpack_byte(v[8], &p->opt) < 0)
 		goto fail;
 
 	ok = 0;
@@ -122,13 +126,13 @@ fail:
 size_t
 pack(uint8_t *ptr, size_t len, const struct param *p)
 {
-	cbor_item_t *argv[8], *array = NULL;
+	cbor_item_t *argv[PACK_ARR_LEN], *array = NULL;
 	size_t cbor_alloc_len, cbor_len = 0;
 	unsigned char *cbor = NULL;
 
 	memset(argv, 0, sizeof(argv));
 
-	if ((array = cbor_new_definite_array(8)) == NULL ||
+	if ((array = cbor_new_definite_array(PACK_ARR_LEN)) == NULL ||
 	    (argv[0] = pack_int(p->seed)) == NULL ||
 	    (argv[1] = pack_string(p->pin)) == NULL ||
 	    (argv[2] = pack_string(p->rp_id)) == NULL ||
@@ -136,10 +140,11 @@ pack(uint8_t *ptr, size_t len, const struct param *p)
 	    (argv[4] = pack_blob(&p->meta_wire_data)) == NULL ||
 	    (argv[5] = pack_blob(&p->rp_wire_data)) == NULL ||
 	    (argv[6] = pack_blob(&p->rk_wire_data)) == NULL ||
-	    (argv[7] = pack_blob(&p->del_wire_data)) == NULL)
+	    (argv[7] = pack_blob(&p->del_wire_data)) == NULL ||
+	    (argv[8] = pack_byte(p->opt)) == NULL)
 		goto fail;
 
-	for (size_t i = 0; i < 8; i++)
+	for (size_t i = 0; i < PACK_ARR_LEN; i++)
 		if (cbor_array_push(array, argv[i]) == false)
 			goto fail;
 
@@ -151,7 +156,7 @@ pack(uint8_t *ptr, size_t len, const struct param *p)
 
 	memcpy(ptr, cbor, cbor_len);
 fail:
-	for (size_t i = 0; i < 8; i++)
+	for (size_t i = 0; i < PACK_ARR_LEN; i++)
 		if (argv[i])
 			cbor_decref(&argv[i]);
 
@@ -204,10 +209,12 @@ pack_dummy(uint8_t *ptr, size_t len)
 }
 
 static fido_dev_t *
-prepare_dev(void)
+prepare_dev(const struct blob *wire_data)
 {
 	fido_dev_t *dev;
 	bool x;
+
+	set_wire_data(wire_data->body, wire_data->len);
 
 	if ((dev = open_dev(0)) == NULL)
 		return NULL;
@@ -230,9 +237,7 @@ get_metadata(const struct param *p)
 	uint64_t existing;
 	uint64_t remaining;
 
-	set_wire_data(p->meta_wire_data.body, p->meta_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL)
+	if ((dev = prepare_dev(&p->meta_wire_data)) == NULL)
 		return;
 
 	if ((metadata = fido_credman_metadata_new()) == NULL) {
@@ -259,9 +264,7 @@ get_rp_list(const struct param *p)
 	fido_dev_t *dev;
 	fido_credman_rp_t *rp;
 
-	set_wire_data(p->rp_wire_data.body, p->rp_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL)
+	if ((dev = prepare_dev(&p->rp_wire_data)) == NULL)
 		return;
 
 	if ((rp = fido_credman_rp_new()) == NULL) {
@@ -293,9 +296,7 @@ get_rk_list(const struct param *p)
 	const fido_cred_t *cred;
 	int val;
 
-	set_wire_data(p->rk_wire_data.body, p->rk_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL)
+	if ((dev = prepare_dev(&p->rk_wire_data)) == NULL)
 		return;
 
 	if ((rk = fido_credman_rk_new()) == NULL) {
@@ -336,9 +337,7 @@ del_rk(const struct param *p)
 {
 	fido_dev_t *dev;
 
-	set_wire_data(p->del_wire_data.body, p->del_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL)
+	if ((dev = prepare_dev(&p->del_wire_data)) == NULL)
 		return;
 
 	fido_credman_del_dev_rk(dev, p->cred_id.body, p->cred_id.len, p->pin);
@@ -354,9 +353,7 @@ set_rk(const struct param *p)
 	const char *pin = p->pin;
 	int r0, r1, r2;
 
-	set_wire_data(p->del_wire_data.body, p->del_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL)
+	if ((dev = prepare_dev(&p->del_wire_data)) == NULL)
 		return;
 	if ((cred = fido_cred_new()) == NULL)
 		goto out;
@@ -400,6 +397,7 @@ mutate(struct param *p, unsigned int seed, unsigned int flags) NO_MSAN
 		mutate_blob(&p->cred_id);
 		mutate_string(p->pin);
 		mutate_string(p->rp_id);
+		mutate_byte(&p->opt);
 	}
 
 	if (flags & MUTATE_WIREDATA) {

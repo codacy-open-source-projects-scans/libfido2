@@ -19,10 +19,13 @@
 
 #include "../openbsd-compat/openbsd-compat.h"
 
+#define PACK_ARRAY_LEN 10
+
 /* Parameter set defining a FIDO2 credential management operation. */
 struct param {
 	char pin[MAXSTR];
 	char name[MAXSTR];
+	uint8_t opt;
 	int seed;
 	struct blob id;
 	struct blob info_wire_data;
@@ -103,7 +106,7 @@ unpack(const uint8_t *ptr, size_t len)
 	    cbor.read != len ||
 	    cbor_isa_array(item) == false ||
 	    cbor_array_is_definite(item) == false ||
-	    cbor_array_size(item) != 9 ||
+	    cbor_array_size(item) != PACK_ARRAY_LEN ||
 	    (v = cbor_array_handle(item)) == NULL)
 		goto fail;
 
@@ -115,7 +118,8 @@ unpack(const uint8_t *ptr, size_t len)
 	    unpack_blob(v[5], &p->enroll_wire_data) < 0 ||
 	    unpack_blob(v[6], &p->list_wire_data) < 0 ||
 	    unpack_blob(v[7], &p->set_name_wire_data) < 0 ||
-	    unpack_blob(v[8], &p->remove_wire_data) < 0)
+	    unpack_blob(v[8], &p->remove_wire_data) < 0 ||
+	    unpack_byte(v[9], &p->opt) < 0)
 		goto fail;
 
 	ok = 0;
@@ -134,13 +138,13 @@ fail:
 size_t
 pack(uint8_t *ptr, size_t len, const struct param *p)
 {
-	cbor_item_t *argv[9], *array = NULL;
+	cbor_item_t *argv[PACK_ARRAY_LEN], *array = NULL;
 	size_t cbor_alloc_len, cbor_len = 0;
 	unsigned char *cbor = NULL;
 
 	memset(argv, 0, sizeof(argv));
 
-	if ((array = cbor_new_definite_array(9)) == NULL ||
+	if ((array = cbor_new_definite_array(PACK_ARRAY_LEN)) == NULL ||
 	    (argv[0] = pack_int(p->seed)) == NULL ||
 	    (argv[1] = pack_string(p->pin)) == NULL ||
 	    (argv[2] = pack_string(p->name)) == NULL ||
@@ -149,10 +153,11 @@ pack(uint8_t *ptr, size_t len, const struct param *p)
 	    (argv[5] = pack_blob(&p->enroll_wire_data)) == NULL ||
 	    (argv[6] = pack_blob(&p->list_wire_data)) == NULL ||
 	    (argv[7] = pack_blob(&p->set_name_wire_data)) == NULL ||
-	    (argv[8] = pack_blob(&p->remove_wire_data)) == NULL)
+	    (argv[8] = pack_blob(&p->remove_wire_data)) == NULL ||
+	    (argv[9] = pack_byte(p->opt)) == NULL)
 		goto fail;
 
-	for (size_t i = 0; i < 9; i++)
+	for (size_t i = 0; i < PACK_ARRAY_LEN; i++)
 		if (cbor_array_push(array, argv[i]) == false)
 			goto fail;
 
@@ -164,7 +169,7 @@ pack(uint8_t *ptr, size_t len, const struct param *p)
 
 	memcpy(ptr, cbor, cbor_len);
 fail:
-	for (size_t i = 0; i < 9; i++)
+	for (size_t i = 0; i < PACK_ARRAY_LEN; i++)
 		if (argv[i])
 			cbor_decref(&argv[i]);
 
@@ -220,10 +225,12 @@ pack_dummy(uint8_t *ptr, size_t len)
 }
 
 static fido_dev_t *
-prepare_dev(void)
+prepare_dev(const struct blob *wire_data)
 {
 	fido_dev_t *dev;
 	bool x;
+
+	set_wire_data(wire_data->body, wire_data->len);
 
 	if ((dev = open_dev(0)) == NULL)
 		return NULL;
@@ -251,9 +258,8 @@ get_info(const struct param *p)
 	uint8_t max_samples;
 	int r;
 
-	set_wire_data(p->info_wire_data.body, p->info_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL || (i = fido_bio_info_new()) == NULL)
+	if ((dev = prepare_dev(&p->info_wire_data)) == NULL ||
+	    (i = fido_bio_info_new()) == NULL)
 		goto done;
 
 	r = fido_bio_dev_get_info(dev, i);
@@ -299,9 +305,7 @@ enroll(const struct param *p)
 	fido_bio_enroll_t *e = NULL;
 	size_t cnt = 0;
 
-	set_wire_data(p->enroll_wire_data.body, p->enroll_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL ||
+	if ((dev = prepare_dev(&p->enroll_wire_data)) == NULL ||
 	    (t = fido_bio_template_new()) == NULL ||
 	    (e = fido_bio_enroll_new()) == NULL)
 		goto done;
@@ -312,7 +316,7 @@ enroll(const struct param *p)
 	consume_enroll(e);
 
 	while (fido_bio_enroll_remaining_samples(e) > 0 && cnt++ < 5) {
-		fido_bio_dev_enroll_continue(dev, t, e, p->seed);
+		fido_bio_dev_enroll_continue(dev, t, e, (uint32_t)p->seed);
 		consume_template(t);
 		consume_enroll(e);
 	}
@@ -333,9 +337,7 @@ list(const struct param *p)
 	fido_bio_template_array_t *ta = NULL;
 	const fido_bio_template_t *t = NULL;
 
-	set_wire_data(p->list_wire_data.body, p->list_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL ||
+	if ((dev = prepare_dev(&p->list_wire_data)) == NULL ||
 	    (ta = fido_bio_template_array_new()) == NULL)
 		goto done;
 
@@ -360,9 +362,7 @@ set_name(const struct param *p)
 	fido_dev_t *dev = NULL;
 	fido_bio_template_t *t = NULL;
 
-	set_wire_data(p->set_name_wire_data.body, p->set_name_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL ||
+	if ((dev = prepare_dev(&p->set_name_wire_data)) == NULL ||
 	    (t = fido_bio_template_new()) == NULL)
 		goto done;
 
@@ -387,9 +387,7 @@ del(const struct param *p)
 	fido_bio_template_t *t = NULL;
 	int r;
 
-	set_wire_data(p->remove_wire_data.body, p->remove_wire_data.len);
-
-	if ((dev = prepare_dev()) == NULL ||
+	if ((dev = prepare_dev(&p->remove_wire_data)) == NULL ||
 	    (t = fido_bio_template_new()) == NULL)
 		goto done;
 
@@ -432,6 +430,7 @@ mutate(struct param *p, unsigned int seed, unsigned int flags) NO_MSAN
 		mutate_blob(&p->id);
 		mutate_string(p->pin);
 		mutate_string(p->name);
+		mutate_byte(&p->opt);
 	}
 
 	if (flags & MUTATE_WIREDATA) {

@@ -227,11 +227,20 @@ dev_get_cbor_info(const struct param *p)
 	uint64_t n;
 	uint8_t proto, major, minor, build, flags;
 	bool v;
+	int r;
+	const unsigned char *ppuat;
+	size_t ppuat_len;
 
 	set_wire_data(p->info_wire_data.body, p->info_wire_data.len);
 
 	if ((dev = open_dev(0)) == NULL)
 		return;
+
+	/* XXX: re-use PIN */
+	ppuat = (const unsigned char *)p->pin1;
+	ppuat_len = strlen(p->pin1);
+	if (ppuat_len == 0)
+		ppuat = NULL;
 
 	proto = fido_dev_protocol(dev);
 	major = fido_dev_major(dev);
@@ -248,7 +257,11 @@ dev_get_cbor_info(const struct param *p)
 	if ((ci = fido_cbor_info_new()) == NULL)
 		goto out;
 
-	fido_dev_get_cbor_info(dev, ci);
+	r = fido_dev_get_cbor_info(dev, ci);
+	consume_str(fido_strerr(r));
+
+	r = fido_cbor_info_decrypt(ci, ppuat, ppuat_len);
+	consume_str(fido_strerr(r));
 
 	for (size_t i = 0; i < fido_cbor_info_versions_len(ci); i++) {
 		char * const *sa = fido_cbor_info_versions_ptr(ci);
@@ -331,7 +344,9 @@ dev_get_cbor_info(const struct param *p)
 	    fido_cbor_info_protocols_len(ci));
 	consume(fido_cbor_info_cfgcmds_ptr(ci), fido_cbor_info_cfgcmds_len(ci));
 	consume(fido_cbor_info_encid_ptr(ci), fido_cbor_info_encid_len(ci));
+	consume(fido_cbor_info_id_ptr(ci), fido_cbor_info_id_len(ci));
 	consume(fido_cbor_info_encstate_ptr(ci), fido_cbor_info_encstate_len(ci));
+	consume(fido_cbor_info_state_ptr(ci), fido_cbor_info_state_len(ci));
 	consume(fido_cbor_info_pin_policy_url_ptr(ci),
 	    fido_cbor_info_pin_policy_url_len(ci));
 
