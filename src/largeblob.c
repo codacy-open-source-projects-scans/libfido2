@@ -415,7 +415,7 @@ largeblob_array_check(const fido_blob_t *array)
 	u_char expected_hash[LARGEBLOB_DIGEST_LENGTH];
 	size_t body_len;
 
-	fido_log_xxd(array->ptr, array->len, __func__);
+	fido_log_xxd(array->ptr, array->len, "%s", __func__);
 	if (array->len < sizeof(expected_hash)) {
 		fido_log_debug("%s: len %zu", __func__, array->len);
 		return -1;
@@ -546,46 +546,17 @@ fail:
 }
 
 static int
-largeblob_get_uv_token(fido_dev_t *dev, const char *pin, fido_blob_t *token,
-    int *ms)
-{
-	es256_pk_t *pk = NULL;
-	fido_blob_t *ecdh = NULL;
-	int r;
-
-	if ((r = fido_do_ecdh(dev, &pk, &ecdh, ms)) != FIDO_OK) {
-		fido_log_debug("%s: fido_do_ecdh", __func__);
-		goto fail;
-	}
-	if ((r = fido_dev_get_uv_token(dev, CTAP_CBOR_LARGEBLOB, pin, ecdh, pk,
-	    NULL, token, ms)) != FIDO_OK) {
-		fido_log_debug("%s: fido_dev_get_uv_token", __func__);
-		goto fail;
-	}
-
-	r = FIDO_OK;
-fail:
-	if (r != FIDO_OK)
-		fido_blob_reset(token);
-
-	fido_blob_free(&ecdh);
-	es256_pk_free(&pk);
-
-	return r;
-}
-
-static int
 largeblob_set_array(fido_dev_t *dev, const cbor_item_t *item, const char *pin,
     int *ms)
 {
 	unsigned char dgst[SHA256_DIGEST_LENGTH];
-	fido_blob_t cbor, token_store;
+	fido_blob_t cbor, tmp_token;
 	const fido_blob_t *token = NULL;
 	size_t chunklen, maxchunklen, totalsize;
 	int r;
 
 	memset(&cbor, 0, sizeof(cbor));
-	memset(&token_store, 0, sizeof(token_store));
+	memset(&tmp_token, 0, sizeof(tmp_token));
 
 	if ((maxchunklen = get_chunklen(dev)) == 0) {
 		fido_log_debug("%s: maxchunklen=%zu", __func__, maxchunklen);
@@ -616,12 +587,12 @@ largeblob_set_array(fido_dev_t *dev, const cbor_item_t *item, const char *pin,
 
 	if ((token = fido_dev_puat_blob(dev)) == NULL &&
 	    (pin != NULL || fido_dev_supports_permissions(dev))) {
-		if ((r = largeblob_get_uv_token(dev, pin, &token_store,
-		    ms)) != FIDO_OK) {
-			fido_log_debug("%s: largeblob_get_uv_token", __func__);
+		if ((r = fido_dev_get_uv_token(dev, CTAP_CBOR_LARGEBLOB, pin,
+		    NULL, NULL, NULL, &tmp_token, ms)) != FIDO_OK) {
+			fido_log_debug("%s: fido_dev_get_uv_token", __func__);
 			goto fail;
 		}
-		token = &token_store;
+		token = &tmp_token;
 	}
 
 	for (size_t offset = 0; offset < cbor.len; offset += chunklen) {
@@ -643,7 +614,7 @@ largeblob_set_array(fido_dev_t *dev, const cbor_item_t *item, const char *pin,
 
 	r = FIDO_OK;
 fail:
-	fido_blob_reset(&token_store);
+	fido_blob_reset(&tmp_token);
 	fido_blob_reset(&cbor);
 
 	return r;
